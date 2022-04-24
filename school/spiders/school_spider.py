@@ -1,25 +1,23 @@
 import json
 import pickle
+import time
 from abc import ABC
 
 import scrapy
 import hashlib
-from scrapy_redis.spiders import RedisSpider, RedisCrawlSpider
+from scrapy_redis.spiders import RedisCrawlSpider
 from scrapy.linkextractors import LinkExtractor
-from scrapy.spiders import CrawlSpider, Rule
-from scrapy_splash import SplashRequest
-from lxml import etree
+from scrapy.spiders import Rule
 from selectolax.parser import HTMLParser
 
-import school.config.mail_setting
 from school.items import SchoolItem
 import re
-from school.config.config import REDIS_RULE_KEY
 from school.database.redis_db import REDIS
 from school.database.mongo import MONGO
 from scrapy.http import Request
 from scrapy.mail import MailSender
-
+from threading import Thread
+from scrapy.signalmanager import SignalManager
 
 def process_links(url_list):
     return url_list
@@ -33,10 +31,20 @@ class SchoolSpider(RedisCrawlSpider, ABC):
     rule_dont_filter = list()
     key_filter = ['西安', '法医']
     key_pattern = r""
+    single = object()
+    my_signal = SignalManager()
 
     def __init__(self, *args, **kwargs):
         super(RedisCrawlSpider, self).__init__(*args, **kwargs)
         self.__init_rule()
+        self.my_signal.connect(self.__init_key_pattern, signal=self.single)
+        self.my_signal.connect(self.update_rule, signal=self.single)
+        Thread(target=self.interval_task).start()
+
+    def interval_task(self):
+        while 1:
+            self.my_signal.send_catch_log(signal=self.single)
+            time.sleep(10)
 
     def __init_key_pattern(self):
         if not self.key_pattern or self.key_pattern.count('|') != len(self.key_filter) - 1:
@@ -160,7 +168,8 @@ class SchoolSpider(RedisCrawlSpider, ABC):
         depth = meta.get("depth")
         download_slot = meta.get("download_slot")
         if self.key_filter:
-            pa_str = self.__init_key_pattern()
+            # pa_str = self.__init_key_pattern()
+            pa_str = self.key_pattern
             pa = re.compile(pa_str)
             find_in_extra = pa.findall(request_url) or pa.findall(link_text) or pa.findall(refer)
             find_in_text = pa.findall(response.text)
@@ -186,7 +195,6 @@ class SchoolSpider(RedisCrawlSpider, ABC):
         len1 = len(str1)
         len2 = len(str2)
         max_length = max(len1, len2)
-        min_length = min(len1, len2)
         # 定义初始位置的索引
         first = 0
         last = max_length
@@ -197,14 +205,14 @@ class SchoolSpider(RedisCrawlSpider, ABC):
             elif str1[mid:] == str2[mid:]:
                 last = mid
             else:
-                for i in range(first, min_length):
+                for i in range(first, min(str1, str2)):
                     if str1[i] != str2[i]:
                         first = i
                         break
                 str1 = str1[first: last]
                 str2 = str2[first: last]
                 temp = 0
-                for j in range(-1, -min_length, -1):
+                for j in range(-1, -min(str1, str2), -1):
                     if str1[j] != str2[j]:
                         temp = j
                         break

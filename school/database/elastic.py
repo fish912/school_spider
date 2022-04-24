@@ -13,49 +13,56 @@ class EsHelper(object):
             self.es = Elasticsearch(hosts=es_address)
         self.index_name = index_name
         self.doc_type = doc_type
-        # 统一检查模板
-        self.create_template(index_name)
-        if not self.check_index_exist(self.index_name):
-            self.create_index(self.index_name)
+        # 创建索引
+        self.create_index(index_name)
 
-    def create_template(self, index_name, doc_name='_doc'):
-        if not self.es.indices.exists_template(index_name):
-            try:
-                self.es.indices.put_template(index_name, {
-                    "settings": {
-                        "index": {
-                            "refresh_interval": "10s",
-                            "number_of_shards": "5",
-                            "search.slowlog.threshold.query.warn": "10s",
-                            "search.slowlog.threshold.query.info": "5s",
-                            "search.slowlog.threshold.fetch.warn": "3s",
-                            "search.slowlog.threshold.fetch.info": "1s"
-                        }
-                    },
-                    # "index_patterns": [f"{index_name}*"],
-                    "mappings": {
-                        index_name: {
-                            "properties": {
-                                "title": {
-                                    "type": "text",
-                                    "analyzer": "ik_max_word",
-                                    "search_analyzer": "ik_max_word",
-                                },
-                                "content": {
-                                    "type": "text",
-                                    "analyzer": "ik_max_word",
-                                    "search_analyzer": "ik_max_word",
-                                },
-                                "url": {
-                                    "type": "keyword"
-                                },
+    def create_index(self, index_name, doc_name='_doc'):
+        if not self.es.indices.exists(index_name):
+            self.es.indices.create(index_name, body={
+                "settings": {
+                    "index.query.default_field": "content",
+                    "index": {
+                        "refresh_interval": "10s",
+                        "number_of_shards": "5",
+                        "search.slowlog.threshold.query.warn": "10s",
+                        "search.slowlog.threshold.query.info": "5s",
+                        "search.slowlog.threshold.fetch.warn": "3s",
+                        "search.slowlog.threshold.fetch.info": "1s"
+                    }
+                },
+                "mappings": {
+                    index_name: {
+                        "_all": {
+                            "enabled": False
+                        },
+                        "properties": {
+                            "title": {
+                                "type": "text",
+                                "analyzer": "ik_max_word",
+                                "search_analyzer": "ik_max_word",
+                            },
+                            "content": {
+                                "type": "text",
+                                "analyzer": "ik_max_word",
+                                "search_analyzer": "ik_max_word",
+                            },
+                            "url": {
+                                "type": "keyword"
+                            },
+                            "update_time": {
+                                "type": "date",
+                                "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis"
+                            },
+                            "fingerprint": {
+                                "type": "keyword",
+                            },
+                            "id": {
+                                "type": "keyword",
                             }
                         }
                     }
-                })
-            except Exception as e:
-                logger.error(e, exc_info=True)
-                raise e
+                }
+            })
 
     def bulk_action(self, actions: list):
         try:
@@ -78,11 +85,6 @@ class EsHelper(object):
             "_source": data
         }
         return action
-
-    def create_index(self, index_name, index_alias=None):
-        self.es.indices.create(index=index_name)
-        if index_alias is not None:
-            self.es.indices.put_alias(index=index_name, name=index_alias)
 
 
 ES = EsHelper(ES_CFG['ES_ADDRESS'], ES_CFG['INDEX_NAME'], ES_CFG['DOC_TYPE'], ES_CFG['USERNAME'], ES_CFG['PASSWORD'])

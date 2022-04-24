@@ -26,9 +26,9 @@ DEPTH_STATS_VERBOSE = True
 # 将对任何单个域执行的并发（即，并发）请求的最大数量，默认8
 # CONCURRENT_REQUESTS_PER_DOMAIN = 16
 # 对于任何站点，将允许爬网的最大深度。如果为零，则不施加限制
-DEPTH_LIMIT = 2
+DEPTH_LIMIT = 1
 # 蜘蛛抓取完毕后发送Scrapy统计信息的邮箱列表
-STATSMAILER_RCPTS = ['910804316@qq.com']
+# STATSMAILER_RCPTS = ['910804316@qq.com']
 
 # Scrapy下载器将执行的并发（即，并发）请求的最大数量，默认16
 # CONCURRENT_REQUESTS = 8
@@ -74,9 +74,9 @@ DOWNLOADER_MIDDLEWARES = {
 }
 # Enable or disable extensions
 # See https://docs.scrapy.org/en/latest/topics/extensions.html
-# EXTENSIONS = {
-#    'scrapy.extensions.telnet.TelnetConsole': None,
-# }
+EXTENSIONS = {
+   'school.scrapy_extension.SpiderOpenCloseLogging': 500,
+}
 
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
@@ -143,7 +143,7 @@ SCHEDULER_PERSIST = True
 
 # Store scraped item in redis for post-processing.
 ITEM_PIPELINES = {
-    'scrapy_redis.pipelines.RedisPipeline': 300,
+    # 'scrapy_redis.pipelines.RedisPipeline': 300,
     'school.pipelines.EsPipeline': 302,
 }
 

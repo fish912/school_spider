@@ -5,9 +5,12 @@
 
 
 # useful for handling different item types with a single interface
+import datetime
 import hashlib
 
 # from twisted.internet.threads import deferToThread
+import time
+
 from school.database.elastic import ES
 
 
@@ -18,5 +21,6 @@ class EsPipeline(object):
     def process_item(self, item, spider):
         es_id = item['id']
         save_data = item.__dict__['_values']
+        save_data['update_time'] = str(datetime.datetime.now())[:19]
         self.es.bulk_action([self.es.get_one_es_action(es_id, save_data)])
         return item

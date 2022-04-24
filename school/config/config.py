@@ -1,6 +1,6 @@
 ES_CFG = {
     "ES_ADDRESS": "http://10.239.50.211:9200/",
-    "INDEX_NAME": 'yk_cs1',
+    "INDEX_NAME": 'yk_cs2',
     "DOC_TYPE": '_doc',
     "USERNAME": None,
     "PASSWORD": None,

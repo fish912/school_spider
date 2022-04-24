@@ -64,6 +64,7 @@ class MongoHelper(object):
                 "html": html_finger,
                 "org_url": org_url,
                 "update_time": parser.parse(str(datetime.datetime.now())),
+                "create_time": parser.parse(str(datetime.datetime.now())),
                 "version": 0,
                 "diff_past": "",
                 "diff_now": "",
@@ -82,7 +83,7 @@ class MongoHelper(object):
                 "diff_past": past,
                 "diff_now": now,
                 # "past_html": exist["last_html"],
-                "last_html": last_html,
+                "last_html_text": last_html,
             }, "$inc": {"version": 1}})
             return False
 
@@ -96,7 +97,6 @@ class MongoHelper(object):
         len1 = len(str1)
         len2 = len(str2)
         max_length = max(len1, len2)
-        min_length = min(len1, len2)
         # 定义初始位置的索引
         first = 0
         last = max_length
@@ -107,14 +107,14 @@ class MongoHelper(object):
             elif str1[mid:] == str2[mid:]:
                 last = mid
             else:
-                for i in range(first, min_length):
+                for i in range(first, min(len(str1), len(str2))):
                     if str1[i] != str2[i]:
                         first = i
                         break
                 str1 = str1[first: last]
                 str2 = str2[first: last]
                 temp = 0
-                for j in range(-1, -min_length, -1):
+                for j in range(-1, -min(len(str1), len(str2)), -1):
                     if str1[j] != str2[j]:
                         temp = j
                         break
@@ -129,7 +129,7 @@ MONGO = MongoHelper(MONGO_CFG['HOST'], MONGO_CFG['PORT'], MONGO_CFG['USERNAME'],
 
 if __name__ == '__main__':
     # print(MONGO.insert_rule(allow_domains=['xjtu.edu.cn'], follow=False))
-    # print(MONGO.insert_rule(allow=['https://www.baidu.com/'], follow=False, dont_filter=False))
+    print(MONGO.insert_rule(allow=['https://www.baidu.com/'], follow=False, dont_filter=False))
     # print(MONGO.insert_rule(allow_domains=['xjtu.edu.cn'], follow=True))
     # print(MONGO.insert_rule(allow_domains=['xjtu.edu.cn'], follow=True, dont_filter=False))
     print(MONGO.get_rule_unique_id_set())
