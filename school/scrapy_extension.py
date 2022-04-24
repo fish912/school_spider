@@ -28,12 +28,18 @@ class SpiderOpenCloseLogging:
         crawler.signals.connect(ext.spider_closed, signal=signals.spider_closed)
         crawler.signals.connect(ext.engine_stopped, signal=signals.engine_stopped)
         crawler.signals.connect(ext.item_scraped, signal=signals.item_scraped)
+        crawler.signals.connect(ext.spider_idle, signal=signals.spider_idle)
 
         # return the extension object
         return ext
 
+    def spider_idle(self, spider):
+        # 爬虫队列闲置时
+        pass
+
     def engine_stopped(self):
-        self.exit_code = True
+        # 爬虫关闭
+        pass
 
     def spider_opened(self, spider):
         logger.info("opened spider %s", spider.name)
