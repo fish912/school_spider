@@ -19,25 +19,18 @@ from scrapy.mail import MailSender
 from threading import Thread
 from scrapy.signalmanager import SignalManager
 
-def process_links(url_list):
-    return url_list
-
 
 class SchoolSpider(RedisCrawlSpider, ABC):
     name = 'school_spider'
     red = REDIS.rc
     rules = []
     rule_id = list()
-    rule_dont_filter = list()
-    key_filter = ['西安', '法医']
-    key_pattern = r""
     single = object()
     my_signal = SignalManager()
 
     def __init__(self, *args, **kwargs):
         super(RedisCrawlSpider, self).__init__(*args, **kwargs)
         self.__init_rule()
-        self.my_signal.connect(self.__init_key_pattern, signal=self.single)
         self.my_signal.connect(self.update_rule, signal=self.single)
         Thread(target=self.interval_task).start()
 
@@ -46,27 +39,28 @@ class SchoolSpider(RedisCrawlSpider, ABC):
             self.my_signal.send_catch_log(signal=self.single)
             time.sleep(10)
 
-    def __init_key_pattern(self):
-        if not self.key_pattern or self.key_pattern.count('|') != len(self.key_filter) - 1:
-            key_p = []
-            for i, val in enumerate(self.key_filter):
-                key_p.append(rf'{val.strip()}')
-            self.key_pattern = '|'.join(key_p)
-        return self.key_pattern
+    @classmethod
+    def __init_listen_word(cls, listen_word):
+        key_pattern = '|'.join(listen_word)
+        key_pattern = r'<.*?(?=' + key_pattern.strip() + r').*?>'
+        return key_pattern
 
     def __init_rule(self):
         for one in MONGO.get_rule_filter_by_id([]):
             unique_id = one.get("unique_id")
             if unique_id not in self.rule_id:
                 self.rule_id.append(unique_id)
-                self.rule_dont_filter.append(one.get("dont_filter"))
                 follow = one.get("follow")
+                listen_word = one.get("listen_word")
+                if listen_word:
+                    listen_word = self.__init_listen_word(listen_word)
                 rule = Rule(LinkExtractor(
                     allow=tuple(one.get("allow", ())),
                     deny=tuple(one.get("deny", ())),
                     allow_domains=tuple(one.get("allow_domains", ())),
                     deny_domains=tuple(one.get("deny_domains", ())),
-                ), callback='parse_item', follow=follow)
+                ), callback='parse_item', follow=follow,
+                    cb_kwargs={"dont_filter": one.get("dont_filter"), "listen_word": listen_word})
                 self._rules.append(rule)
                 self._rules[-1]._compile(self)
 
@@ -75,6 +69,9 @@ class SchoolSpider(RedisCrawlSpider, ABC):
         for one in MONGO.get_rule_filter_by_update():
             unique_id = one.get("unique_id")
             dont_filter = one.get("dont_filter")
+            listen_word = one.get("listen_word")
+            if listen_word:
+                listen_word = self.__init_listen_word(listen_word)
             follow = one.get("follow")
             allow = tuple(one.get("allow", ()))
             deny = tuple(one.get("deny", ()))
@@ -85,11 +82,10 @@ class SchoolSpider(RedisCrawlSpider, ABC):
                 deny=deny,
                 allow_domains=allow_domains,
                 deny_domains=deny_domains,
-            ), callback='parse_item', follow=follow)
+            ), callback='parse_item', follow=follow, cb_kwargs={"dont_filter": dont_filter, "listen_word": listen_word})
             # 新增rule
             if unique_id not in self.rule_id:
                 self.rule_id.append(unique_id)
-                self.rule_dont_filter.append(dont_filter)
                 self._rules.append(rule)
                 self._rules[-1]._compile(self)
             # 更新rule
@@ -97,7 +93,6 @@ class SchoolSpider(RedisCrawlSpider, ABC):
                 index = self.rule_id.index(unique_id)
                 self._rules[index] = rule
                 self._rules[index]._compile(self)
-                self.rule_dont_filter[index] = dont_filter
                 update_id_list.append(unique_id)
         self.__del_rule()
         MONGO.update_rule_state(update_id_list)
@@ -110,7 +105,6 @@ class SchoolSpider(RedisCrawlSpider, ABC):
                 index = self.rule_id.index(_id)
                 new_rule_id.pop(index)
                 self._rules.pop(index)
-                self.rule_dont_filter.pop(index)
             self.rule_id = new_rule_id
 
     def _build_request(self, rule_index, link):
@@ -119,10 +113,10 @@ class SchoolSpider(RedisCrawlSpider, ABC):
             callback=self._callback,
             errback=self._errback,
             meta=dict(rule=rule_index, link_text=link.text),
-            dont_filter=self.rule_dont_filter[rule_index],
+            dont_filter=self._rules[rule_index].cb_kwargs.get("dont_filter", False),
         )
 
-    def parse_item(self, response):
+    def parse_item(self, response, **kwargs):
         org_text = response.text
         if not org_text:
             return
@@ -145,7 +139,7 @@ class SchoolSpider(RedisCrawlSpider, ABC):
         # html_fingerprint = hashlib.md5(tree.html.encode('utf8')).hexdigest()
         html_fingerprint = hashlib.md5(text.encode('utf8')).hexdigest()
 
-        self.listen(response)
+        self.listen(response, kwargs)
         item = SchoolItem()
         item['url'] = response.url
         item['title'] = title
@@ -158,7 +152,7 @@ class SchoolSpider(RedisCrawlSpider, ABC):
             return
         return item
 
-    def listen(self, response):
+    def listen(self, response, kwargs):
         # 监听关键词
         request = response.request
         refer = request.headers.get("Referer", b"").decode()
@@ -167,13 +161,12 @@ class SchoolSpider(RedisCrawlSpider, ABC):
         link_text = meta.get("link_text")
         depth = meta.get("depth")
         download_slot = meta.get("download_slot")
-        if self.key_filter:
-            # pa_str = self.__init_key_pattern()
-            pa_str = self.key_pattern
-            pa = re.compile(pa_str)
+
+        listen_word = kwargs.get("listen_word")
+        if listen_word:
+            pa = re.compile(listen_word)
             find_in_extra = pa.findall(request_url) or pa.findall(link_text) or pa.findall(refer)
             find_in_text = pa.findall(response.text)
-
             # mailer = MailSender.from_settings(self.settings)
             # mailer.send(to=["910804316@qq.com"], subject="Some subject", body="Some body", cc=["910804316@qq.com"])
             if find_in_extra or find_in_text:
@@ -183,8 +176,9 @@ class SchoolSpider(RedisCrawlSpider, ABC):
                     "link_text": link_text,
                     "depth": depth,
                     "download_slot": download_slot,
-                    "find_in_extra": '#'.join(list(set(find_in_extra))),
-                    "find_in_content": '#'.join(list(set(find_in_text)))
+                    "find_in_extra": list(set(find_in_extra)),
+                    "find_in_content": list(set(find_in_text)),
+                    "listen_word": listen_word[7:-5]
                 }
                 MONGO.insert_suspicious_msg(record)
 
