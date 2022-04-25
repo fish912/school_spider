@@ -164,9 +164,11 @@ class SchoolSpider(RedisCrawlSpider, ABC):
 
         listen_word = kwargs.get("listen_word")
         if listen_word:
-            pa = re.compile(listen_word)
-            find_in_extra = pa.findall(request_url) or pa.findall(link_text) or pa.findall(refer)
-            find_in_text = pa.findall(response.text)
+            org_listen_word = listen_word[7:-5]
+            pa1 = re.compile(r'.*?(?=' + org_listen_word + r').*')
+            pa2 = re.compile(listen_word)
+            find_in_extra = pa1.findall(request_url) or pa1.findall(link_text) or pa1.findall(refer)
+            find_in_text = pa2.findall(response.text)
             # mailer = MailSender.from_settings(self.settings)
             # mailer.send(to=["910804316@qq.com"], subject="Some subject", body="Some body", cc=["910804316@qq.com"])
             if find_in_extra or find_in_text:
@@ -178,7 +180,7 @@ class SchoolSpider(RedisCrawlSpider, ABC):
                     "download_slot": download_slot,
                     "find_in_extra": list(set(find_in_extra)),
                     "find_in_content": list(set(find_in_text)),
-                    "listen_word": listen_word[7:-5]
+                    "listen_word": org_listen_word
                 }
                 MONGO.insert_suspicious_msg(record)
 
