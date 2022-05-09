@@ -26,7 +26,7 @@ DEPTH_STATS_VERBOSE = True
 # 将对任何单个域执行的并发（即，并发）请求的最大数量，默认8
 # CONCURRENT_REQUESTS_PER_DOMAIN = 16
 # 对于任何站点，将允许爬网的最大深度。如果为零，则不施加限制
-DEPTH_LIMIT = 1
+# DEPTH_LIMIT = 1
 # 蜘蛛抓取完毕后发送Scrapy统计信息的邮箱列表
 # STATSMAILER_RCPTS = ['910804316@qq.com']
 

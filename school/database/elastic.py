@@ -53,7 +53,13 @@ class EsHelper(object):
                                 "type": "date",
                                 "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis"
                             },
-                            "fingerprint": {
+                            "html_fingerprint": {
+                                "type": "keyword",
+                            },
+                            "url_fingerprint": {
+                                "type": "keyword",
+                            },
+                            "host": {
                                 "type": "keyword",
                             },
                             "id": {

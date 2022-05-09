@@ -1,7 +1,5 @@
 import datetime
 import hashlib
-import pickle
-import time
 
 import pymongo
 from school.config.config import MONGO_CFG
@@ -23,7 +21,7 @@ class MongoHelper(object):
 
     def insert_rule(self, allow=None, deny=None, allow_domains=None, deny_domains=None, follow=False,
                     dont_filter=False, listen_word=None, update=True):
-        unique_id = hashlib.md5(f'{allow}'.encode()).hexdigest()
+        unique_id = hashlib.md5(f'{allow}{allow_domains}'.encode()).hexdigest()
 
         res = self.rule_col.update_one({"unique_id": unique_id}, {"$set": {
             "allow": allow or list(),
@@ -131,6 +129,16 @@ MONGO = MongoHelper(MONGO_CFG['HOST'], MONGO_CFG['PORT'], MONGO_CFG['USERNAME'],
 if __name__ == '__main__':
     # print(MONGO.insert_rule(allow_domains=['xjtu.edu.cn'], follow=False))
     # print(MONGO.insert_rule(allow=['https://www.baidu.com/'], follow=False, dont_filter=False))
-    print(MONGO.insert_rule(allow_domains=['xjtu.edu.cn'], follow=True, listen_word=["建设", "疫情"]))
+    print(MONGO.insert_rule(allow_domains=['xjtu.edu.cn'], follow=True, listen_word=["主席"]))
+    # print(MONGO.insert_rule(allow_domains=['cnpythons.com'], follow=True, listen_word=["主席"]))
     # print(MONGO.insert_rule(allow_domains=['xjtu.edu.cn'], follow=True, dont_filter=False))
-    print(MONGO.get_rule_unique_id_set())
+    # print(MONGO.get_rule_unique_id_set())
+    # from selenium import webdriver
+    # from selectolax.parser import HTMLParser
+
+    # browser = webdriver.Chrome("F:\webdriver\chromedriver.exe")
+    # res = browser.get('https://www.cnpython.com/pypi/pyguacamole')
+    # tree = HTMLParser(browser.page_source)
+    # a = tree.html
+    # print(browser.page_source)
+    # print(browser.current_window_handle)

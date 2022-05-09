@@ -1,36 +1,26 @@
 import logging
-from scrapy import signals
-from scrapy.exceptions import NotConfigured
+from multiprocessing import Process
 
+from scrapy import signals
 logger = logging.getLogger(__name__)
 
 
 class SpiderOpenCloseLogging:
 
-    def __init__(self, item_count, crawler):
-        self.item_count = item_count
+    def __init__(self, crawler):
         self.crawler = crawler
         self.items_scraped = 0
 
     @classmethod
     def from_crawler(cls, crawler):
-        # first check if the extension should be enabled and raise
-        # NotConfigured otherwise
+        ext = cls(crawler)
 
-        # get the number of items from settings
-        item_count = crawler.settings.getint('MYEXT_ITEMCOUNT', 1000)
-
-        # instantiate the extension object
-        ext = cls(item_count, crawler)
-
-        # connect the extension object to signals
         crawler.signals.connect(ext.spider_opened, signal=signals.spider_opened)
-        crawler.signals.connect(ext.spider_closed, signal=signals.spider_closed)
-        crawler.signals.connect(ext.engine_stopped, signal=signals.engine_stopped)
-        crawler.signals.connect(ext.item_scraped, signal=signals.item_scraped)
-        crawler.signals.connect(ext.spider_idle, signal=signals.spider_idle)
+        # crawler.signals.connect(ext.spider_closed, signal=signals.spider_closed)
+        # crawler.signals.connect(ext.engine_stopped, signal=signals.engine_stopped)
+        # crawler.signals.connect(ext.item_scraped, signal=signals.item_scraped)
+        # crawler.signals.connect(ext.spider_idle, signal=signals.spider_idle)
 
-        # return the extension object
         return ext
 
     def spider_idle(self, spider):
@@ -68,5 +58,3 @@ class SpiderOpenCloseLogging:
             'spider_name': self.crawler.spider.name
         }
         self.items_scraped += 1
-        if self.items_scraped % self.item_count == 0:
-            logger.info("scraped %d items", self.items_scraped)
