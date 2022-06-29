@@ -1,6 +1,6 @@
 ES_CFG = {
-    "ES_ADDRESS": "http://10.239.50.211:9200/",
-    "INDEX_NAME": 'yk_cs5',
+    "ES_ADDRESS": "http://10.240.60.70:9200/",
+    "INDEX_NAME": 'yk_cs7',
     "DOC_TYPE": '_doc',
     "USERNAME": None,
     "PASSWORD": None,
@@ -8,8 +8,7 @@ ES_CFG = {
 
 # redis服务器配置
 REDIS_CFG = {
-    "REDIS_HOST": "10.239.50.211:6378",
-    "CLUSTER_HOST": ["10.239.50.211:6379", "10.239.50.211:6380", "10.239.50.211:6381"],
+    "REDIS_HOST": "10.240.60.70:6379",
     "PASSWORD": "antiy",
     "DB": 0
 }
@@ -18,9 +17,12 @@ REDIS_RULE_KEY = "_spider_rule"
 
 # redis服务器配置
 MONGO_CFG = {
-    "HOST": "localhost",
+    "HOST": "10.240.60.70",
     "PORT": 27017,
     "USERNAME": "admin",
     "PASSWORD": "123456",
-    "DB": "rule"
+    "DB": "spider"
 }
+
+ALLOW_DOMAINS = ['xacom.edu.cn']
+NEED_PIC = False

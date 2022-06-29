@@ -17,7 +17,7 @@ class EsHelper(object):
         self.create_index(index_name)
 
     def create_index(self, index_name, doc_name='_doc'):
-        if not self.es.indices.exists(index_name):
+        if not self.es.indices.exists(index=index_name):
             self.es.indices.create(index_name, body={
                 "settings": {
                     "index.query.default_field": "content",
@@ -39,12 +39,10 @@ class EsHelper(object):
                             "title": {
                                 "type": "text",
                                 "analyzer": "ik_max_word",
-                                "search_analyzer": "ik_max_word",
                             },
                             "content": {
                                 "type": "text",
                                 "analyzer": "ik_max_word",
-                                "search_analyzer": "ik_max_word",
                             },
                             "url": {
                                 "type": "keyword"

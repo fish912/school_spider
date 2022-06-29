@@ -2,8 +2,8 @@ import datetime
 import hashlib
 
 import pymongo
-from school.config.config import MONGO_CFG
-
+from school.config.config import MONGO_CFG, ALLOW_DOMAINS
+from school.config.keyword import INIT_KEYWORD
 from dateutil import parser
 
 
@@ -12,15 +12,35 @@ class MongoHelper(object):
     def __init__(self, host, port, username, password, db):
         self.mongo = pymongo.MongoClient(f'mongodb://{username}:{password}@{host}:{port}')
         self.spider_db = self.mongo['spider']
-        self.finger_col = self.spider_db['fingerprint']
-        self.rule_col = self.spider_db['rule']
-        self.suspicious_col = self.spider_db['suspicious']
+        self.finger_col = self.spider_db['fingerprint2']
+        self.rule_col = self.spider_db['rule2']
+        self.suspicious_col = self.spider_db['suspicious2']
+        self.keyword_col = self.spider_db['keyword2']
+        self.user_rule_rel_col = self.spider_db['user_rule_rel2']
 
     def get_client(self):
         return self.mongo
 
+    def get_keyword(self, id_lis: list):
+        user_lis = self.user_rule_rel_col.find({"rule": {"$in": id_lis}}).distinct("user")
+        if not user_lis:
+            return {}
+        res = self.keyword_col.find({"user": {"$in": user_lis}})
+        res_dic = {}
+        for i in res:
+            user_dic = res_dic.setdefault(i.get("user"), {0: [], 1: [], 2: []})
+            loc = i.get("location")
+            word = i.get("word")
+            if loc[0] == "1":
+                user_dic[0].append(word)
+            if loc[1] == "1":
+                user_dic[1].append(word)
+            if loc[2] == "1":
+                user_dic[2].append(word)
+        return res_dic
+
     def insert_rule(self, allow=None, deny=None, allow_domains=None, deny_domains=None, follow=False,
-                    dont_filter=False, listen_word=None, update=True):
+                    dont_filter=False, update=True):
         unique_id = hashlib.md5(f'{allow}{allow_domains}'.encode()).hexdigest()
 
         res = self.rule_col.update_one({"unique_id": unique_id}, {"$set": {
@@ -31,7 +51,6 @@ class MongoHelper(object):
             "follow": follow,
             "dont_filter": dont_filter,
             "unique_id": unique_id,
-            "listen_word": listen_word or [],
             "update": update
         }}, upsert=True)
         return res.raw_result.get('updatedExisting')
@@ -50,7 +69,7 @@ class MongoHelper(object):
 
     def update_rule_state(self, unique_id_list):
         if unique_id_list:
-            self.rule_col.update({"unique_id": {"$in": unique_id_list}}, {"$set": {"update": False}})
+            self.rule_col.update_many({"unique_id": {"$in": unique_id_list}}, {"$set": {"update": False}})
 
     def insert_finger(self):
         self.finger_col.insert_one({})
@@ -76,7 +95,7 @@ class MongoHelper(object):
 
             if is_same:
                 return True
-            self.finger_col.update({"url": url_finger}, {"$set": {
+            self.finger_col.update_one({"url": url_finger}, {"$set": {
                 "html": html_finger,
                 "update_time": parser.parse(str(datetime.datetime.now())),
                 "diff_past": past,
@@ -125,20 +144,12 @@ class MongoHelper(object):
 
 
 MONGO = MongoHelper(MONGO_CFG['HOST'], MONGO_CFG['PORT'], MONGO_CFG['USERNAME'], MONGO_CFG['PASSWORD'], MONGO_CFG['DB'])
+MONGO.insert_rule(allow_domains=ALLOW_DOMAINS, follow=True)
 
 if __name__ == '__main__':
     # print(MONGO.insert_rule(allow_domains=['xjtu.edu.cn'], follow=False))
     # print(MONGO.insert_rule(allow=['https://www.baidu.com/'], follow=False, dont_filter=False))
-    print(MONGO.insert_rule(allow_domains=['xjtu.edu.cn'], follow=True, listen_word=["主席"]))
+    print(MONGO.insert_rule(allow_domains=['xacom.edu.cn'], follow=True))
     # print(MONGO.insert_rule(allow_domains=['cnpythons.com'], follow=True, listen_word=["主席"]))
     # print(MONGO.insert_rule(allow_domains=['xjtu.edu.cn'], follow=True, dont_filter=False))
     # print(MONGO.get_rule_unique_id_set())
-    # from selenium import webdriver
-    # from selectolax.parser import HTMLParser
-
-    # browser = webdriver.Chrome("F:\webdriver\chromedriver.exe")
-    # res = browser.get('https://www.cnpython.com/pypi/pyguacamole')
-    # tree = HTMLParser(browser.page_source)
-    # a = tree.html
-    # print(browser.page_source)
-    # print(browser.current_window_handle)

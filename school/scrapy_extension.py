@@ -1,7 +1,10 @@
+import datetime
 import logging
 from multiprocessing import Process
 
 from scrapy import signals
+from school.database.redis_db import REDIS
+
 logger = logging.getLogger(__name__)
 
 
@@ -10,28 +13,38 @@ class SpiderOpenCloseLogging:
     def __init__(self, crawler):
         self.crawler = crawler
         self.items_scraped = 0
+        self.now = datetime.datetime.now()
+        self.task_time_now = datetime.datetime.now()
 
     @classmethod
     def from_crawler(cls, crawler):
         ext = cls(crawler)
-
-        crawler.signals.connect(ext.spider_opened, signal=signals.spider_opened)
+        # crawler.signals.connect(ext.spider_opened, signal=signals.spider_opened)
         # crawler.signals.connect(ext.spider_closed, signal=signals.spider_closed)
         # crawler.signals.connect(ext.engine_stopped, signal=signals.engine_stopped)
         # crawler.signals.connect(ext.item_scraped, signal=signals.item_scraped)
-        # crawler.signals.connect(ext.spider_idle, signal=signals.spider_idle)
+        crawler.signals.connect(ext.spider_idle, signal=signals.spider_idle)
 
         return ext
 
     def spider_idle(self, spider):
         # 爬虫队列闲置时
-        pass
+        now = datetime.datetime.now()
+        if now - self.now > datetime.timedelta(seconds=30):
+            REDIS.get_redis().delete("school_spider:dupefilter")
+            self.now = now
+        if now - self.task_time_now > datetime.timedelta(hours=2):
+            if REDIS.get_redis().llen('school_spider:start_urls') == 0:
+                REDIS.get_redis().lpush('school_spider:start_urls', "https://www.xacom.edu.cn/")
+                self.task_time_now = now
 
     def engine_stopped(self):
         # 爬虫关闭
         pass
 
     def spider_opened(self, spider):
+        if REDIS.get_redis().llen('school_spider:start_urls') == 0:
+            REDIS.get_redis().lpush('school_spider:start_urls', "https://www.xacom.edu.cn/")
         logger.info("opened spider %s", spider.name)
 
     def spider_closed(self, spider):

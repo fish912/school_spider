@@ -6,8 +6,12 @@
 #     https://docs.scrapy.org/en/latest/topics/settings.html
 #     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
+from school.config.config import REDIS_CFG
 from school.config.mail_setting import *
-SPLASH_URL = 'http://127.0.0.1:8050'
+# LOG_LEVEL = 'INFO'
+LOG_LEVEL = 'DEBUG'
+# LOG_FILE = 'spiders.log'
+# SPLASH_URL = 'http://127.0.0.1:8050'
 BOT_NAME = 'school'
 
 SPIDER_MODULES = ['school.spiders']
@@ -15,7 +19,7 @@ NEWSPIDER_MODULE = 'school.spiders'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36'
-
+RETRY_TIMES = 2
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
 COOKIES_ENABLED = True
@@ -75,7 +79,7 @@ DOWNLOADER_MIDDLEWARES = {
 # Enable or disable extensions
 # See https://docs.scrapy.org/en/latest/topics/extensions.html
 EXTENSIONS = {
-   'school.scrapy_extension.SpiderOpenCloseLogging': 500,
+    'school.scrapy_extension.SpiderOpenCloseLogging': 500,
 }
 
 # Configure item pipelines
@@ -105,9 +109,6 @@ EXTENSIONS = {
 # HTTPCACHE_IGNORE_HTTP_CODES = []
 # HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
 # HTTPCACHE_STORAGE = 'scrapy_splash.SplashAwareFSCacheStorage'
-
-
-
 
 
 # Enables scheduling storing requests queue in redis.
@@ -157,10 +158,11 @@ import ujson
 # REDIS_ITEMS_SERIALIZER = 'ujson.dumps'
 
 # Specify the host and port to use when connecting to Redis (optional).
-REDIS_HOST = '10.239.50.211'
-REDIS_PORT = 6378
+__temp = REDIS_CFG['REDIS_HOST'].split(":")
+REDIS_HOST = __temp[0]
+REDIS_PORT = __temp[1]
 REDIS_PARAMS = {
-    'password': 'antiy'
+    'password': REDIS_CFG['PASSWORD']
 }
 
 # Specify the full Redis URL for connecting (optional).

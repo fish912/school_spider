@@ -4,6 +4,7 @@ from abc import ABC
 from dateutil import parser
 import scrapy
 import hashlib
+from school.config.config import NEED_PIC
 from scrapy_redis.spiders import RedisCrawlSpider
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import Rule
@@ -79,11 +80,38 @@ class SchoolSpider(RedisCrawlSpider, ABC):
             time.sleep(10)
 
     @classmethod
-    def __init_listen_word(cls, listen_word):
-        key_patterns = []
-        for i in listen_word:
-            key_pattern = r'<.*?(?=' + i.strip() + r').*?>'
-            key_patterns.append(re.compile(key_pattern))
+    def __init_listen_word(cls, listen_word: dict):
+        key_patterns = {}
+        for user, v in listen_word.items():
+            # 前
+            u_lis = key_patterns.setdefault(user, list())
+            if v[0]:
+                temp = '|'.join(v[0])
+                temp.replace('*', r'\*')
+                try:
+                    for_pat = re.compile(rf'[^\u4e00-\u9fa5\w，,；;:：、]{{2,}}\b({temp})')
+                    u_lis.append(for_pat)
+                except:
+                    pass
+            # 中
+            if v[1]:
+                temp = '|'.join(v[1])
+                temp.replace('*', r'\*')
+                try:
+                    mid_pat = re.compile(
+                        rf'[\u4e00-\u9fa5\w，,；;:：、]{{2,}}({temp})[\u4e00-\u9fa5\w，,；;:：、]*[^.。!！?？”\"‘\']*')
+                    u_lis.append(mid_pat)
+                except:
+                    pass
+            # 后
+            if v[2]:
+                temp = '|'.join(v[2])
+                temp.replace('*', r'\*')
+                try:
+                    back_pat = re.compile(rf'({temp})\b(?:[.。!！?？”\"‘\']|\s+)*[^\u4e00-\u9fa5\w，,;；:：、]{{3,}}')
+                    u_lis.append(back_pat)
+                except:
+                    pass
         return key_patterns
 
     def __init_rule(self):
@@ -92,7 +120,7 @@ class SchoolSpider(RedisCrawlSpider, ABC):
             if unique_id not in self.rule_id:
                 self.rule_id.append(unique_id)
                 follow = one.get("follow")
-                listen_word = one.get("listen_word")
+                listen_word = MONGO.get_keyword([unique_id]) or dict()
                 if listen_word:
                     listen_word = self.__init_listen_word(listen_word)
                 rule = Rule(MyLinkExtractor(
@@ -111,7 +139,7 @@ class SchoolSpider(RedisCrawlSpider, ABC):
         for one in MONGO.get_rule_filter_by_update():
             unique_id = one.get("unique_id")
             dont_filter = one.get("dont_filter")
-            listen_word = one.get("listen_word")
+            listen_word = MONGO.get_keyword([unique_id]) or dict()
             if listen_word:
                 listen_word = self.__init_listen_word(listen_word)
             follow = one.get("follow")
@@ -184,7 +212,6 @@ class SchoolSpider(RedisCrawlSpider, ABC):
         html_fingerprint = hashlib.md5(text.encode('utf8')).hexdigest()
         host = urlparse(response.url).netloc.lower()
 
-        self.listen(response, kwargs, host, url_fingerprint, title)
         item = SchoolItem()
         item['url'] = response.url
         item['url_fingerprint'] = url_fingerprint
@@ -195,6 +222,7 @@ class SchoolSpider(RedisCrawlSpider, ABC):
         item['id'] = url_fingerprint
 
         not_update = MONGO.exist_finger(url_fingerprint, html_fingerprint, text, response.url)
+        self.listen(response, kwargs, host, url_fingerprint, title)
         if not_update:
             return
         return item
@@ -209,17 +237,20 @@ class SchoolSpider(RedisCrawlSpider, ABC):
         depth = meta.get("depth")
         download_slot = meta.get("download_slot")
 
-        listen_word = kwargs.get("listen_word") or []
+        listen_word = kwargs.get("listen_word") or {}
         if listen_word:
-            find_in_text = list()
-            find_word = list()
-            for i in listen_word:
-                find_res = i.findall(response.text)
-                if find_res:
-                    find_in_text.extend(find_res)
-                    find_word.append(i.pattern[7:-5])
-            if find_in_text:
-                self.red.sadd("selenium_url", request_url)
+            find_word = dict()
+            for user, pats in listen_word.items():
+                u_w = []
+                for pat in pats:
+                    find_res = pat.findall(response.text)
+                    if find_res:
+                        u_w.extend(find_res)
+                if u_w:
+                    find_word[user] = list(set(u_w))
+            if find_word:
+                if NEED_PIC:
+                    self.red.sadd("selenium_url", request_url)
                 record = {
                     "request_url": request_url,
                     "url_fingerprint": url_fingerprint,
@@ -227,11 +258,10 @@ class SchoolSpider(RedisCrawlSpider, ABC):
                     "link_text": link_text,
                     "depth": depth,
                     "download_slot": download_slot,
-                    "find_in_content": list(set(find_in_text)),
                     "listen_word": find_word,
                     "title": title,
                     "host": host,
-                    "update_time": parser.parse(str(datetime.datetime.now()))
+                    "update_time": parser.parse(str(datetime.datetime.now())),
                 }
                 MONGO.insert_suspicious_msg(record)
 
