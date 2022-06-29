@@ -142,9 +142,21 @@ class MongoHelper(object):
                     return False, str1[:temp], str2[:temp]
         return True, None, None
 
+    def init_admin_keyword(self):
+        update_lis = []
+        for k in INIT_KEYWORD:
+            update_lis.append(pymongo.UpdateOne({"user": "admin", "word": k}, {"$set":
+                                                                                   {"user": "admin", "word": k,
+                                                                                    "location": "111",
+                                                                                    "time": str(
+                                                                                        datetime.datetime.now())[:19],
+                                                                                    "is_update": 1}}, upsert=True))
+        self.keyword_col.bulk_write(update_lis)
+
 
 MONGO = MongoHelper(MONGO_CFG['HOST'], MONGO_CFG['PORT'], MONGO_CFG['USERNAME'], MONGO_CFG['PASSWORD'], MONGO_CFG['DB'])
 MONGO.insert_rule(allow_domains=ALLOW_DOMAINS, follow=True)
+MONGO.init_admin_keyword()
 
 if __name__ == '__main__':
     # print(MONGO.insert_rule(allow_domains=['xjtu.edu.cn'], follow=False))
